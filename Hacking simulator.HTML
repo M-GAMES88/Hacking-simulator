@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hacking simulator</title>
+<style>
+    :root { --green: #00ff41; --dark: #001100; }
+    body { margin: 0; background: #000; color: var(--green); font-family: "Courier New", monospace; overflow: hidden; }
+    
+    .desktop { padding: 20px; display: flex; flex-direction: column; gap: 15px; position: absolute; z-index: 1; }
+    .icon { width: 80px; text-align: center; cursor: pointer; padding: 5px; transition: 0.2s; }
+    .icon:hover { background: rgba(0, 255, 0, 0.1); }
+    .icon span { font-size: 24px; display: block; }
+
+    .window {
+        position: absolute;
+        width: 400px; height: 300px;
+        background: black;
+        border: 1px solid var(--green);
+        display: none;
+        flex-direction: column;
+        box-shadow: 0 0 15px rgba(0,255,0,0.2);
+    }
+    .titlebar {
+        background: var(--dark); padding: 6px; cursor: move;
+        display: flex; justify-content: space-between; font-size: 11px;
+        border-bottom: 1px solid var(--green);
+    }
+    .close { cursor: pointer; color: red; font-weight: bold; padding: 0 -5px; }
+
+    canvas { display: block; background: #000; width: 100%; height: 100%; }
+    #map { height: 260px; filter: invert(90%) hue-rotate(180deg); }
+    
+    .controls { padding: 10px; display: flex; flex-direction: column; gap: 5px; }
+    input, select, button { 
+        background: #000; color: var(--green); border: 1px solid var(--green); 
+        padding: 6px; font-family: "Courier New"; outline: none;
+    }
+    button:hover { background: var(--green); color: #000; }
+    label { font-size: 10px; margin-top: 5px; }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+
+<div class="desktop">
+    <div class="icon" onclick="createNewCodeWin()"><span>??</span>Code</div>
+    <div class="icon" onclick="openWin('resultWin')"><span>??</span>Results</div>
+    <div class="icon" onclick="openWin('mapWin')"><span>??</span>Map</div>
+    <div class="icon" onclick="openWin('hackWin')"><span>??</span>Device</div>
+    <div class="icon" onclick="openWin('mailWin')"><span>??</span>Mail</div>
+</div>
+
+<div class="window" id="codeWinTemplate">
+    <div class="titlebar" onmousedown="focusWin(this.parentElement); drag(event,this.parentElement)">
+        <span class="win-title">Terminal</span>
+        <span class="close" onclick="removeCodeWin(this.parentElement.parentElement)">X</span>
+    </div>
+    <canvas class="codeCanvas"></canvas>
+</div>
+
+<div class="window" id="resultWin" style="left:450px; top:20px; width: 450px;">
+    <div class="titlebar" onmousedown="focusWin(this.parentElement); drag(event,this.parentElement)">Traffic_Monitor <span class="close" onclick="closeWin('resultWin')">X</span></div>
+    <canvas id="resultCanvas" width="450" height="250"></canvas>
+</div>
+
+<div class="window" id="mapWin" style="left:450px; top:350px;">
+    <div class="titlebar" onmousedown="focusWin(this.parentElement); drag(event,this.parentElement)">Nodes_Map <span class="close" onclick="closeWin('mapWin')">X</span></div>
+    <div id="map"></div>
+</div>
+
+<div class="window" id="hackWin" style="left:20px; top:350px;">
+    <div class="titlebar" onmousedown="focusWin(this.parentElement); drag(event,this.parentElement)">Device_Exploit <span class="close" onclick="closeWin('hackWin')">X</span></div>
+    <div class="controls">
+        <select id="devSelect"><option>Android_V12</option><option>Windows_11</option><option>iPhone_15</option></select>
+        <button onclick="startHack()">START HACK</button>
+    </div>
+    <canvas id="hackCanvas" width="400" height="150"></canvas>
+</div>
+
+<div class="window" id="mailWin" style="left:200px; top:150px;">
+    <div class="titlebar" onmousedown="focusWin(this.parentElement); drag(event,this.parentElement)">Mail_Spammer <span class="close" onclick="closeWin('mailWin')">X</span></div>
+    <div class="controls">
+        <label>TARGET EMAIL:</label>
+        <input type="text" id="mEmail" placeholder="victim@target" oninput="checkMail(this)">
+        
+        <label>PHISHING URL:</label>
+        <div style="display:flex;">
+            <span style="border:1px solid var(--green); padding:6px; background:#002200;">HTTPS://</span>
+            <input type="text" id="mLink" style="flex-grow:1;" placeholder="www.google.login">
+        </div>
+        <button onclick="sendMail()">SEND MALICIOUS LINK</button>
+        <div id="mStatus" style="font-size:11px; margin-top:5px; color:white;">STATUS: WAITING...</div>
+    </div>
+</div>
+
+<script>
+let topZ = 100;
+let codeWindows = [];
+const MAX_WINDOWS = 4;
+const fakeText = `<script> MMIMOM_OVERRIDE... <hack> BREACHING... <body> INJECTING... `;
+
+function focusWin(el) { el.style.zIndex = ++topZ; }
+function openWin(id) { let w = document.getElementById(id); w.style.display="flex"; focusWin(w); }
+function closeWin(id) { document.getElementById(id).style.display="none"; }
+
+// Logic for Program 5 (Mail)
+function checkMail(input) {
+    // Ãí ÍÇÌÉ ÈíßÊÈåÇ áæ ÎáÕÊ æãÔ ÃÎÑåÇ .com íÍØåÇ
+    if (input.value.length > 5 && !input.value.endsWith(".com")) {
+        // ÈäÚãá ÇáÊÚÏíá áãÇ ÇáãÓÊÎÏã íÎÑÌ ãä ÇáÎÇäÉ Ãæ íæÞÝ ßÊÇÈÉ
+        input.onblur = () => { if(!input.value.endsWith(".com")) input.value += ".com"; };
+    }
+}
+
+function sendMail() {
+    let email = document.getElementById("mEmail").value;
+    let status = document.getElementById("mStatus");
+    if(email === "") return;
+    status.innerText = "SPOOFING SMTP... SENDING TO " + email;
+    setTimeout(() => { 
+        status.innerText = "SUCCESS: LINK SENT!"; 
+        status.style.color = "#0f0";
+        codeWindows.forEach(win => win.targetBarH = Math.min(220, win.targetBarH + 50));
+    }, 1500);
+}
+
+// Device Logic
+let devMsg = "READY.";
+function startHack() {
+    devMsg = "CONNECTING...";
+    setTimeout(() => { devMsg = "EXPLOIT INJECTED!"; }, 2000);
+}
+
+// Code & Results Logic
+function createNewCodeWin() {
+    if (codeWindows.length >= MAX_WINDOWS) return;
+    let template = document.getElementById('codeWinTemplate');
+    let clone = template.cloneNode(true);
+    let id = "code_" + Date.now();
+    clone.id = id;
+    clone.style.display = "flex";
+    clone.style.left = (150 + (codeWindows.length * 30)) + "px";
+    clone.style.top = (60 + (codeWindows.length * 30)) + "px";
+    clone.querySelector('.win-title').innerText = "TERMINAL_" + (codeWindows.length + 1);
+    document.body.appendChild(clone);
+    focusWin(clone);
+    let canvas = clone.querySelector('.codeCanvas');
+    canvas.width = 400; canvas.height = 260;
+    codeWindows.push({ id, ctx: canvas.getContext('2d'), text: "", index: 0, currentBarH: 0, targetBarH: 80 });
+}
+
+function removeCodeWin(el) {
+    codeWindows = codeWindows.filter(w => w.id !== el.id);
+    el.remove();
+}
+
+document.addEventListener("keydown", () => {
+    codeWindows.forEach(win => {
+        for(let i=0; i<12; i++) { 
+            win.text += fakeText[win.index % fakeText.length];
+            win.index++;
+        }
+        win.targetBarH = Math.min(220, win.targetBarH + 3);
+    });
+});
+
+function update() {
+    codeWindows.forEach(win => {
+        let ctx = win.ctx;
+        ctx.fillStyle = "#000"; ctx.fillRect(0,0,400,300);
+        ctx.fillStyle = "#0f0"; ctx.font = "12px Courier New";
+        let display = win.text.match(/.{1,35}/g) || [];
+        if(display.length > 13) display = display.slice(-13);
+        display.forEach((line, i) => ctx.fillText(">> " + line, 10, 25 + (i * 18)));
+    });
+
+    let rCtx = document.getElementById('resultCanvas').getContext('2d');
+    rCtx.fillStyle="#000"; rCtx.fillRect(0,0,450,250);
+    codeWindows.forEach((win, i) => {
+        rCtx.fillStyle = `rgba(0, 255, 65, 0.7)`;
+        let x = 60 + (i * 90);
+        win.currentBarH += (win.targetBarH - win.currentBarH) * 0.1;
+        rCtx.fillRect(x, 220 - win.currentBarH, 40, win.currentBarH);
+        if(win.targetBarH > 40) win.targetBarH -= 0.1;
+    });
+
+    let hCtx = document.getElementById('hackCanvas').getContext('2d');
+    hCtx.fillStyle="#000"; hCtx.fillRect(0,0,400,150);
+    hCtx.fillStyle="#0f0"; hCtx.fillText("STATUS: " + devMsg, 20, 70);
+
+    requestAnimationFrame(update);
+}
+update();
+
+function drag(e, el){
+    let x=e.clientX-el.offsetLeft; let y=e.clientY-el.offsetTop;
+    function move(e){ el.style.left=(e.clientX-x)+"px"; el.style.top=(e.clientY-y)+"px"; }
+    document.addEventListener("mousemove",move);
+    document.addEventListener("mouseup",()=>{document.removeEventListener("mousemove",move);},{once:true});
+}
+
+let map=L.map('map', {zoomControl: false}).setView([20,0],2);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
+</script>
+</body>
+</html>
